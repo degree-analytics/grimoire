@@ -1,0 +1,12 @@
+{
+  "name": "grimoire",
+  "owner": {
+    "name": "jparkypark",
+    "url": "https://github.com/jparkypark"
+  },
+  "metadata": {
+    "description": "Personal Claude Code marketplace — a collection of spells (skills), tomes (plugins), incantations (commands), and runes (hooks).",
+    "version": "0.1.0"
+  },
+  "plugins": []
+}
