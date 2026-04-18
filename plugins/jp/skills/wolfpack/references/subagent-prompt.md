@@ -12,8 +12,11 @@ You are a subagent in the `/wolfpack hunt` flow. Your job is to produce an **adj
 - PR: #{{pr_number}} — "{{title}}"
 - Worktree: `{{worktree_path}}`
 - Base ref (for Wolf comparison): `origin/{{base_ref}}`
+- Stacked on parent PR: `{{stacked}}` (true when the base ref is another PR's branch, not the repo default)
 - Report output (markdown): `{{report_md_path}}`
 - Summary output (JSON): `{{report_json_path}}`
+
+When `stacked` is true, the base ref is intentionally the parent PR's head branch. Wolf will see only this PR's incremental diff — do NOT expand scope to include parent-PR changes. If you cannot resolve `origin/{{base_ref}}` locally, emit `fetch_error` with a note that the parent branch may have been deleted upstream.
 
 ## Required steps
 
@@ -36,6 +39,8 @@ You are a subagent in the `/wolfpack hunt` flow. Your job is to produce an **adj
   "nameWithOwner": "{{nameWithOwner}}",
   "title": "{{title}}",
   "url": "https://github.com/{{nameWithOwner}}/pull/{{pr_number}}",
+  "base_ref": "{{base_ref}}",
+  "stacked": {{stacked}},
   "verdict_counts": { "implement": N, "discuss": N, "skip": N, "inconclusive": N },
   "critical_count": N,
   "top_issue": "short description of the top implement-verdict finding, or null",
