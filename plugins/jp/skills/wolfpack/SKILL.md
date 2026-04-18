@@ -31,6 +31,7 @@ Usage:
 
 Assumptions:
 - Review directory: `~/ws/review/`
+- Clone layout: `~/ws/review/<owner>/<repo>/` (nested so same-name repos across orgs don't collide)
 - Helper scripts live at `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/scripts/`
 - Subagent prompt template: `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/references/subagent-prompt.md`
 
@@ -97,8 +98,11 @@ For each selected PR (up to 3):
    DEFAULT=$(gh repo view <nameWithOwner> --json defaultBranchRef -q .defaultBranchRef.name)
    ```
    If `baseRefName` equals `DEFAULT` or is `dev`/`main`/`master`, `stacked=false`. Otherwise `stacked=true` (the PR stacks on another PR's branch).
-3. Call `prep-worktree.sh --clone ~/ws/review/<repo> --pr <n> --base-ref <baseRefName>` → captures worktree path. The `--base-ref` fetch is cheap and idempotent; always pass it so `origin/<baseRefName>` is guaranteed to exist for Wolf's diff, whether the PR is stacked or not.
-4. Load the template at `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/references/subagent-prompt.md` and substitute placeholders (including `stacked`).
+3. Call `prep-worktree.sh --clone ~/ws/review/<nameWithOwner> --pr <n> --base-ref <baseRefName>` → captures worktree path. The `--base-ref` fetch is cheap and idempotent; always pass it so `origin/<baseRefName>` is guaranteed to exist for Wolf's diff, whether the PR is stacked or not.
+4. Load the template at `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/references/subagent-prompt.md` and substitute placeholders, including:
+   - `report_md_path` = `~/ws/review/.reports/<owner>__<repo>-pr<n>.md`
+   - `report_json_path` = `~/ws/review/.reports/<owner>__<repo>-pr<n>.summary.json`
+   - `stacked` = `true` or `false` from step 2
 5. Add an Agent tool call (subagent_type: `general-purpose`) with the substituted prompt.
 
 **Send all Agent tool calls in a single message** — the Claude Code runtime runs them concurrently. Do NOT loop and wait per PR.
@@ -165,31 +169,19 @@ gh auth status >/dev/null 2>&1 || {
 }
 ```
 
-### Step 2: Derive owner and run groom
-
-The inbox owner (for `gh pr view --repo <owner>/<repo>`) comes from the first seen PR in the current inbox. Fetch it via:
-
-```bash
-OWNER=$(${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/scripts/inbox.sh 2>/dev/null \
-  | jq -r '.[0].nameWithOwner | split("/")[0] // "campusiq"')
-```
-
-If the inbox is empty, default to `campusiq`. (If the user reviews cross-org later, we add `--owner` to the subcommand.)
-
-### Step 3: Invoke groom.sh
+### Step 2: Invoke groom.sh
 
 ```bash
 ${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/scripts/groom.sh \
   --review-dir ~/ws/review \
-  --repo-owner "$OWNER" \
   $EXTRA_FLAGS
 ```
 
-Stream its output directly. That's the entire groom UX.
+Stream its output directly. That's the entire groom UX. Owner and repo are derived per-worktree from the `<owner>/<repo>/` path, so cross-org reviews work out of the box.
 
 Groom runs in two passes:
 
-1. **Sync** (unless `--no-sync`): for each top-level repo clone under `~/ws/review/`, run `gt sync -f` when the repo is gt-initialized (Graphite's recommended fetch + trunk update + merged-branch delete), falling back to `git fetch --all --prune`. This keeps origin refs fresh so the next `/wolfpack hunt` has up-to-date PR head and base refs.
+1. **Sync** (unless `--no-sync`): for each `<owner>/<repo>` clone under `~/ws/review/`, run `gt sync -f` when the repo is gt-initialized (Graphite's recommended fetch + trunk update + merged-branch delete), falling back to `git fetch --all --prune`. This keeps origin refs fresh so the next `/wolfpack hunt` has up-to-date PR head and base refs.
 2. **Prune**: remove worktrees whose PR is `MERGED` or `CLOSED` (or all wolfpack worktrees if `--all`), archive their reports under `.reports/archive/`, and prune stale worktree metadata.
 
 ---

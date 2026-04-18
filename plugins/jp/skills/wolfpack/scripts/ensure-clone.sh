@@ -24,12 +24,15 @@ mkdir -p "$REVIEW_DIR"
 
 while IFS=$'\t' read -r repo nwo; do
   [ -z "$repo" ] && continue
-  if [ -d "$REVIEW_DIR/$repo" ]; then
+  # Key the clone path on nameWithOwner so two repos with the same short
+  # name under different owners (e.g. acme/admin_app vs beta/admin_app)
+  # don't collide on ~/ws/review/<repo>.
+  if [ -d "$REVIEW_DIR/$nwo" ]; then
     continue
   fi
   if [ "$MODE" = "check" ]; then
     printf '%s\t%s\n' "$repo" "$nwo"
   else
-    gh repo clone "$nwo" "$REVIEW_DIR/$repo" >&2
+    gh repo clone "$nwo" "$REVIEW_DIR/$nwo" >&2
   fi
 done

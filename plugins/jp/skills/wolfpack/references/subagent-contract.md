@@ -2,7 +2,7 @@
 
 Every `/wolfpack hunt` subagent writes the same two artifacts and returns the summary JSON verbatim.
 
-## `<repo>-pr<n>.summary.json`
+## `<owner>__<repo>-pr<n>.summary.json`
 
 Example:
 
@@ -20,8 +20,8 @@ Example:
       },
       "critical_count": 1,
       "top_issue": "Missing rate limiting (auth.py:67)",
-      "report_path": "/Users/jp/ws/review/.reports/admin_app-pr1234.md",
-      "worktree_path": "/Users/jp/ws/review/admin_app/.worktrees/pr-1234",
+      "report_path": "/Users/jp/ws/review/.reports/campusiq__admin_app-pr1234.md",
+      "worktree_path": "/Users/jp/ws/review/campusiq/admin_app/.worktrees/pr-1234",
       "status": "ok"
     }
 
@@ -42,9 +42,9 @@ Example:
 | `status` | enum | `ok` \| `fetch_error` \| `wolf_error` \| `parse_error` \| `partial` |
 | `error` | string | (optional) present when status != `ok` |
 
-## `<repo>-pr<n>.md`
+## `<owner>__<repo>-pr<n>.md`
 
-Human-readable markdown: adjudicated findings table + per-finding detail blocks, matching the format `eng:code-review` Phase 5 produces — minus the "Select items to act on" prompt.
+Human-readable markdown: adjudicated findings table + per-finding detail blocks, matching the format `eng:code-review` Phase 5 produces — minus the "Select items to act on" prompt. Owner is included in the filename so cross-org reviews with the same repo short name don't overwrite each other.
 
 ## Error status examples
 
