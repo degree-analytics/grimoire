@@ -31,7 +31,7 @@ Usage:
 
 Assumptions:
 - Review directory: `~/ws/review/`
-- Clone layout: `~/ws/review/<owner>/<repo>/` (nested so same-name repos across orgs don't collide)
+- Clone layout: nested `~/ws/review/<owner>/<repo>/` (preferred; prevents same-name collisions across orgs). Flat `~/ws/review/<repo>/` is also accepted — owner is derived from the clone's `origin` URL. Hunt creates new clones in nested layout only.
 - Helper scripts live at `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/scripts/`
 - Subagent prompt template: `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/references/subagent-prompt.md`
 
