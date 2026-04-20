@@ -53,6 +53,21 @@ for clone in "$REVIEW_DIR"/*/; do
 done
 shopt -u nullglob
 
+# Fail-loud diagnostic: if REVIEW_DIR has subdirs but none matched as clones,
+# warn so layout mismatches don't silently produce 0/0/0 output.
+if [ ${#CLONES[@]} -eq 0 ]; then
+  shopt -s nullglob
+  _subdirs=("$REVIEW_DIR"/*/)
+  shopt -u nullglob
+  if [ ${#_subdirs[@]} -gt 0 ]; then
+    _samples=()
+    for _d in "${_subdirs[@]:0:3}"; do
+      _samples+=("$(basename "${_d%/}")")
+    done
+    echo "warn: found ${#_subdirs[@]} directories under $REVIEW_DIR but none look like git clones; expected <owner>/<repo>/.git or <repo>/.git (first: ${_samples[*]})" >&2
+  fi
+fi
+
 # Sync pass: keep every clone's origin refs fresh before checking PR states.
 # Uses `gt sync -f` when the repo is gt-initialized; falls back to `git fetch
 # --all --prune`.
