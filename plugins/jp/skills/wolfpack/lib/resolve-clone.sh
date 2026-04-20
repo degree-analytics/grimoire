@@ -21,7 +21,7 @@ resolve_clone_path() {
 
   # Flat layout: $review_dir/<repo>/.git with origin URL matching nwo
   if [ -d "$review_dir/$repo/.git" ]; then
-    local flat_nwo=""
+    local flat_nwo="" _fo _fr
     if IFS=$'\t' read -r _fo _fr < <(derive_owner "$review_dir/$repo"); then
       flat_nwo="$_fo/$_fr"
     fi

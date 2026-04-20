@@ -9,6 +9,8 @@
 # Normalized PR schema:
 #   { "number", "title", "author", "repo", "nameWithOwner",
 #     "updatedAt", "additions", "deletions", "isDraft", "checks" }
+# Note: "author" is a plain string (login name), NOT an object.
+# Callers should use `.author`, not `.author.login`.
 set -euo pipefail
 
 SOURCE_JSON=""
