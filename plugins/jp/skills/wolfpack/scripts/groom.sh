@@ -10,6 +10,9 @@
 # Report layout:    $REVIEW_DIR/.reports/<owner>__<repo>-pr<n>.md
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../lib/derive-owner.sh"
+
 REVIEW_DIR=""
 ALL=0
 SYNC=1
@@ -41,13 +44,7 @@ for clone in "$REVIEW_DIR"/*/*/; do
 done
 for clone in "$REVIEW_DIR"/*/; do
   [ -d "${clone}.git" ] || continue
-  _url=$(git -C "$clone" remote get-url origin 2>/dev/null) || continue
-  # Extract owner/repo from git@host:owner/repo(.git) or https://host/owner/repo(.git)
-  _path=$(printf '%s' "$_url" | sed -E 's#\.git/?$##; s#.*[:/]([^/:]+)/([^/]+)$#\1/\2#')
-  case "$_path" in
-    */*) _owner="${_path%/*}"; _repo="${_path##*/}" ;;
-    *)   continue ;;
-  esac
+  IFS=$'\t' read -r _owner _repo < <(derive_owner "${clone%/}") || continue
   [ -n "$_owner" ] && [ -n "$_repo" ] || continue
   CLONES+=("${clone%/}|$_owner|$_repo")
 done
