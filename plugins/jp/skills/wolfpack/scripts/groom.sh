@@ -10,6 +10,9 @@
 # Report layout:    $REVIEW_DIR/.reports/<owner>__<repo>-pr<n>.md
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../lib/derive-owner.sh"
+
 REVIEW_DIR=""
 ALL=0
 SYNC=1
@@ -41,17 +44,26 @@ for clone in "$REVIEW_DIR"/*/*/; do
 done
 for clone in "$REVIEW_DIR"/*/; do
   [ -d "${clone}.git" ] || continue
-  _url=$(git -C "$clone" remote get-url origin 2>/dev/null) || continue
-  # Extract owner/repo from git@host:owner/repo(.git) or https://host/owner/repo(.git)
-  _path=$(printf '%s' "$_url" | sed -E 's#\.git/?$##; s#.*[:/]([^/:]+)/([^/]+)$#\1/\2#')
-  case "$_path" in
-    */*) _owner="${_path%/*}"; _repo="${_path##*/}" ;;
-    *)   continue ;;
-  esac
+  IFS=$'\t' read -r _owner _repo < <(derive_owner "${clone%/}") || continue
   [ -n "$_owner" ] && [ -n "$_repo" ] || continue
   CLONES+=("${clone%/}|$_owner|$_repo")
 done
 shopt -u nullglob
+
+# Fail-loud diagnostic: if REVIEW_DIR has subdirs but none matched as clones,
+# warn so layout mismatches don't silently produce 0/0/0 output.
+if [ ${#CLONES[@]} -eq 0 ]; then
+  shopt -s nullglob
+  _subdirs=("$REVIEW_DIR"/*/)
+  shopt -u nullglob
+  if [ ${#_subdirs[@]} -gt 0 ]; then
+    _samples=()
+    for _d in "${_subdirs[@]:0:3}"; do
+      _samples+=("$(basename "${_d%/}")")
+    done
+    echo "warn: found ${#_subdirs[@]} directories under $REVIEW_DIR but none look like git clones; expected <owner>/<repo>/.git or <repo>/.git (first: ${_samples[*]})" >&2
+  fi
+fi
 
 # Sync pass: keep every clone's origin refs fresh before checking PR states.
 # Uses `gt sync -f` when the repo is gt-initialized; falls back to `git fetch

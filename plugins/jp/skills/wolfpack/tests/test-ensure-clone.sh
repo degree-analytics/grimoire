@@ -63,4 +63,32 @@ PATH="$STUB_BIN:$PATH" echo "$INPUT3" | PATH="$STUB_BIN:$PATH" "$SCRIPT" --revie
 [ -d "$REV/acme/admin_app" ] || { echo "FAIL: clone did not create acme/admin_app"; exit 1; }
 [ -d "$REV/beta/bifrost" ]   || { echo "FAIL: clone did not create beta/bifrost"; exit 1; }
 
+# Flat-layout clone: $REVIEW_DIR/<repo>/ exists with origin URL matching <nameWithOwner>.
+# --check-only should recognize it as present, not report it as missing.
+FLAT=$(mktemp -d)
+REAL_GIT="$(command -v git)"
+trap 'rm -rf "$TMP" "$CROSS" "$FRESH" "$FLAT"' EXIT
+mkdir -p "$FLAT/admin_app"
+"$REAL_GIT" -C "$FLAT/admin_app" init -q
+"$REAL_GIT" -C "$FLAT/admin_app" remote add origin git@github.com:campusiq/admin_app.git
+
+INPUT_FLAT=$'admin_app\tcampusiq/admin_app'
+OUT_FLAT=$(echo "$INPUT_FLAT" | "$SCRIPT" --review-dir "$FLAT" --check-only)
+[ -z "$OUT_FLAT" ] || {
+  echo "FAIL: flat clone with matching origin should not be reported as missing"
+  echo "got: $OUT_FLAT"
+  exit 1
+}
+
+# Flat clone with DIFFERENT origin should still be reported as missing.
+INPUT_DIFF=$'admin_app\tother_org/admin_app'
+OUT_DIFF=$(echo "$INPUT_DIFF" | "$SCRIPT" --review-dir "$FLAT" --check-only)
+EXPECTED_DIFF="admin_app	other_org/admin_app"
+[ "$OUT_DIFF" = "$EXPECTED_DIFF" ] || {
+  echo "FAIL: flat clone with non-matching origin should be reported as missing"
+  echo "got: $OUT_DIFF"
+  echo "expected: $EXPECTED_DIFF"
+  exit 1
+}
+
 echo "PASS: test-ensure-clone.sh"

@@ -31,7 +31,7 @@ Usage:
 
 Assumptions:
 - Review directory: `~/ws/review/`
-- Clone layout: `~/ws/review/<owner>/<repo>/` (nested so same-name repos across orgs don't collide)
+- Clone layout: nested `~/ws/review/<owner>/<repo>/` (preferred; prevents same-name collisions across orgs). Flat `~/ws/review/<repo>/` is also accepted — owner is derived from the clone's `origin` URL. Hunt creates new clones in nested layout only.
 - Helper scripts live at `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/scripts/`
 - Subagent prompt template: `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/references/subagent-prompt.md`
 
@@ -98,7 +98,12 @@ For each selected PR (up to 3):
    DEFAULT=$(gh repo view <nameWithOwner> --json defaultBranchRef -q .defaultBranchRef.name)
    ```
    If `baseRefName` equals `DEFAULT` or is `dev`/`main`/`master`, `stacked=false`. Otherwise `stacked=true` (the PR stacks on another PR's branch).
-3. Call `prep-worktree.sh --clone ~/ws/review/<nameWithOwner> --pr <n> --base-ref <baseRefName>` → captures worktree path. The `--base-ref` fetch is cheap and idempotent; always pass it so `origin/<baseRefName>` is guaranteed to exist for Wolf's diff, whether the PR is stacked or not.
+3. Resolve the actual clone path (nested or flat layout):
+   ```bash
+   source ${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/lib/resolve-clone.sh
+   CLONE_PATH=$(resolve_clone_path ~/ws/review <nameWithOwner>)
+   ```
+   Then call `prep-worktree.sh --clone "$CLONE_PATH" --pr <n> --base-ref <baseRefName>` → captures worktree path. The `--base-ref` fetch is cheap and idempotent; always pass it so `origin/<baseRefName>` is guaranteed to exist for Wolf's diff, whether the PR is stacked or not.
 4. Load the template at `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/references/subagent-prompt.md` and substitute placeholders, including:
    - `report_md_path` = `~/ws/review/.reports/<owner>__<repo>-pr<n>.md`
    - `report_json_path` = `~/ws/review/.reports/<owner>__<repo>-pr<n>.summary.json`

@@ -7,6 +7,8 @@
 #   ensure-clone.sh --review-dir <dir> --clone
 #     → clones missing repos via `gh repo clone`
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../lib/derive-owner.sh"
 
 REVIEW_DIR=""
 MODE=""
@@ -27,15 +29,23 @@ while IFS=$'\t' read -r repo nwo; do
   # Key the clone path on nameWithOwner so two repos with the same short
   # name under different owners (e.g. acme/admin_app vs beta/admin_app)
   # don't collide on ~/ws/review/<repo>.
+  # Check nested layout first (preferred)
   if [ -d "$REVIEW_DIR/$nwo" ]; then
     continue
+  fi
+  # Check flat layout: $REVIEW_DIR/<repo>/ with origin URL matching nwo
+  if [ -d "$REVIEW_DIR/$repo/.git" ]; then
+    flat_nwo=""
+    if IFS=$'\t' read -r _fo _fr < <(derive_owner "$REVIEW_DIR/$repo"); then
+      flat_nwo="$_fo/$_fr"
+    fi
+    if [ "$flat_nwo" = "$nwo" ]; then
+      continue
+    fi
   fi
   if [ "$MODE" = "check" ]; then
     printf '%s\t%s\n' "$repo" "$nwo"
   else
-    # Create the owner parent first — `gh repo clone` delegates to `git clone`,
-    # which does not create leading path components, so a fresh review dir
-    # with no existing <owner>/ would otherwise fail.
     mkdir -p "$(dirname "$REVIEW_DIR/$nwo")"
     gh repo clone "$nwo" "$REVIEW_DIR/$nwo" >&2
   fi

@@ -111,4 +111,12 @@ PATH="$STUB_BIN:$PATH" "$SCRIPT" --review-dir "$LEGACY" --all --no-sync
 [ -f "$LEGACY/.reports/archive/legacy_repo-pr9999.summary.json" ] \
   || { echo "FAIL: legacy-named summary not archived"; exit 1; }
 
+# Fail-loud diagnostic: review dir has subdirs but none are git clones.
+# Groom should warn about unrecognized entries instead of silently reporting 0/0/0.
+UNRECOG="$TMP/unrecog_review"
+mkdir -p "$UNRECOG/not_a_repo/subdir" "$UNRECOG/also_not_a_repo" "$UNRECOG/.reports/archive"
+OUT=$(PATH="$STUB_BIN:$PATH" "$SCRIPT" --review-dir "$UNRECOG" --no-sync 2>&1)
+echo "$OUT" | grep -q "but none look like git clones" \
+  || { echo "FAIL: no diagnostic for unrecognized subdirs"; echo "got: $OUT"; exit 1; }
+
 echo "PASS: test-groom.sh"
