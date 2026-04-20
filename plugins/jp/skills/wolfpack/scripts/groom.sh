@@ -27,16 +27,39 @@ done
 REMOVED=0; KEPT=0; SYNCED=0
 mkdir -p "$REVIEW_DIR/.reports/archive"
 
+# Discover clones in both layouts:
+#   nested: $REVIEW_DIR/<owner>/<repo>/.git
+#   flat:   $REVIEW_DIR/<repo>/.git   (owner derived from `origin` URL)
+# Entries are "path|owner|repo".
+CLONES=()
+shopt -s nullglob
+for clone in "$REVIEW_DIR"/*/*/; do
+  [ -d "${clone}.git" ] || continue
+  _owner=$(basename "$(dirname "$clone")")
+  _repo=$(basename "$clone")
+  CLONES+=("${clone%/}|$_owner|$_repo")
+done
+for clone in "$REVIEW_DIR"/*/; do
+  [ -d "${clone}.git" ] || continue
+  _url=$(git -C "$clone" remote get-url origin 2>/dev/null) || continue
+  # Extract owner/repo from git@host:owner/repo(.git) or https://host/owner/repo(.git)
+  _path=$(printf '%s' "$_url" | sed -E 's#\.git/?$##; s#.*[:/]([^/:]+)/([^/]+)$#\1/\2#')
+  case "$_path" in
+    */*) _owner="${_path%/*}"; _repo="${_path##*/}" ;;
+    *)   continue ;;
+  esac
+  [ -n "$_owner" ] && [ -n "$_repo" ] || continue
+  CLONES+=("${clone%/}|$_owner|$_repo")
+done
+shopt -u nullglob
+
 # Sync pass: keep every clone's origin refs fresh before checking PR states.
 # Uses `gt sync -f` when the repo is gt-initialized; falls back to `git fetch
 # --all --prune`.
 if [ "$SYNC" = "1" ]; then
   echo "Syncing review repos..."
-  shopt -s nullglob
-  for clone in "$REVIEW_DIR"/*/*/; do
-    [ -d "$clone/.git" ] || continue
-    owner=$(basename "$(dirname "$clone")")
-    repo=$(basename "$clone")
+  for entry in "${CLONES[@]}"; do
+    IFS='|' read -r clone owner repo <<< "$entry"
     label="$owner/$repo"
     if command -v gt >/dev/null 2>&1 && [ -f "$clone/.git/.graphite_repo_config" ]; then
       (cd "$clone" && gt sync -f >/dev/null 2>&1) \
@@ -49,49 +72,53 @@ if [ "$SYNC" = "1" ]; then
     SYNCED=$((SYNCED+1))
     echo "  synced $label"
   done
-  shopt -u nullglob
   echo
 fi
 
 shopt -s nullglob
-for wt in "$REVIEW_DIR"/*/*/.worktrees/pr-*; do
-  [ -d "$wt" ] || continue
-  parent=$(dirname "$(dirname "$wt")")       # $REVIEW_DIR/<owner>/<repo>
-  repo=$(basename "$parent")
-  owner=$(basename "$(dirname "$parent")")
-  pr=$(basename "$wt" | sed 's/^pr-//')
-  label="$owner/$repo#$pr"
+for entry in "${CLONES[@]}"; do
+  IFS='|' read -r clone owner repo <<< "$entry"
+  for wt in "$clone"/.worktrees/pr-*; do
+    [ -d "$wt" ] || continue
+    pr=$(basename "$wt" | sed 's/^pr-//')
+    label="$owner/$repo#$pr"
 
-  if [ "$ALL" = "1" ]; then
-    state="FORCE"
-  else
-    state=$(gh pr view "$pr" --repo "$owner/$repo" --json state -q .state 2>/dev/null || echo UNKNOWN)
-  fi
+    if [ "$ALL" = "1" ]; then
+      state="FORCE"
+    else
+      state=$(gh pr view "$pr" --repo "$owner/$repo" --json state -q .state 2>/dev/null || echo UNKNOWN)
+    fi
 
-  case "$state" in
-    MERGED|CLOSED|FORCE)
-      git -C "$parent" worktree remove --force "$wt" 2>/dev/null || rm -rf "$wt"
-      report="$REVIEW_DIR/.reports/${owner}__${repo}-pr${pr}.md"
-      summary="$REVIEW_DIR/.reports/${owner}__${repo}-pr${pr}.summary.json"
-      [ -f "$report"  ] && mv "$report"  "$REVIEW_DIR/.reports/archive/"
-      [ -f "$summary" ] && mv "$summary" "$REVIEW_DIR/.reports/archive/"
-      REMOVED=$((REMOVED+1))
-      echo "removed $label ($state)"
-      ;;
-    *)
-      KEPT=$((KEPT+1))
-      echo "kept    $label ($state)"
-      ;;
-  esac
+    case "$state" in
+      MERGED|CLOSED|FORCE)
+        git -C "$clone" worktree remove --force "$wt" 2>/dev/null || rm -rf "$wt"
+        report="$REVIEW_DIR/.reports/${owner}__${repo}-pr${pr}.md"
+        summary="$REVIEW_DIR/.reports/${owner}__${repo}-pr${pr}.summary.json"
+        [ -f "$report"  ] && mv "$report"  "$REVIEW_DIR/.reports/archive/"
+        [ -f "$summary" ] && mv "$summary" "$REVIEW_DIR/.reports/archive/"
+        # Pre-migration flat-layout clones used <repo>-pr<n> (no owner prefix).
+        # Archive those too so groom doesn't leave stale reports behind.
+        legacy_report="$REVIEW_DIR/.reports/${repo}-pr${pr}.md"
+        legacy_summary="$REVIEW_DIR/.reports/${repo}-pr${pr}.summary.json"
+        [ -f "$legacy_report"  ] && mv "$legacy_report"  "$REVIEW_DIR/.reports/archive/"
+        [ -f "$legacy_summary" ] && mv "$legacy_summary" "$REVIEW_DIR/.reports/archive/"
+        REMOVED=$((REMOVED+1))
+        echo "removed $label ($state)"
+        ;;
+      *)
+        KEPT=$((KEPT+1))
+        echo "kept    $label ($state)"
+        ;;
+    esac
+  done
 done
 shopt -u nullglob
 
 # Prune any lingering worktree metadata in each repo clone
-shopt -s nullglob
-for clone in "$REVIEW_DIR"/*/*/; do
-  [ -d "$clone/.git" ] && git -C "$clone" worktree prune 2>/dev/null || true
+for entry in "${CLONES[@]}"; do
+  IFS='|' read -r clone _ _ <<< "$entry"
+  git -C "$clone" worktree prune 2>/dev/null || true
 done
-shopt -u nullglob
 
 echo
 if [ "$SYNC" = "1" ]; then

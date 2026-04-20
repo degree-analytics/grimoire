@@ -91,4 +91,24 @@ PATH="$STUB_BIN:$PATH" "$SCRIPT" --review-dir "$REV" --all --no-sync
 [ -f "$REV/.reports/archive/acme__admin_app-pr5555.md" ] \
   || { echo "FAIL: acme/admin_app report not archived"; exit 1; }
 
+# Legacy flat-layout groom: pre-migration clones live at $REV/<repo>/ with
+# their owner derived from `origin`, and their reports used the old
+# <repo>-pr<n>.md naming (no owner prefix). Groom must archive those too.
+LEGACY="$TMP/legacy_review"
+mkdir -p "$LEGACY/.reports/archive" \
+         "$LEGACY/legacy_repo/.worktrees/pr-9999"
+# Real git init so `git remote get-url origin` works for owner derivation.
+"$REAL_GIT" -C "$LEGACY/legacy_repo" init -q
+"$REAL_GIT" -C "$LEGACY/legacy_repo" remote add origin git@github.com:oldorg/legacy_repo.git
+: > "$LEGACY/.reports/legacy_repo-pr9999.md"
+: > "$LEGACY/.reports/legacy_repo-pr9999.summary.json"
+
+PATH="$STUB_BIN:$PATH" "$SCRIPT" --review-dir "$LEGACY" --all --no-sync
+[ ! -d "$LEGACY/legacy_repo/.worktrees/pr-9999" ] \
+  || { echo "FAIL: --all did not remove flat-layout legacy_repo worktree"; exit 1; }
+[ -f "$LEGACY/.reports/archive/legacy_repo-pr9999.md" ] \
+  || { echo "FAIL: legacy-named report not archived"; exit 1; }
+[ -f "$LEGACY/.reports/archive/legacy_repo-pr9999.summary.json" ] \
+  || { echo "FAIL: legacy-named summary not archived"; exit 1; }
+
 echo "PASS: test-groom.sh"

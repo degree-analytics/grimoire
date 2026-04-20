@@ -33,6 +33,10 @@ while IFS=$'\t' read -r repo nwo; do
   if [ "$MODE" = "check" ]; then
     printf '%s\t%s\n' "$repo" "$nwo"
   else
+    # Create the owner parent first — `gh repo clone` delegates to `git clone`,
+    # which does not create leading path components, so a fresh review dir
+    # with no existing <owner>/ would otherwise fail.
+    mkdir -p "$(dirname "$REVIEW_DIR/$nwo")"
     gh repo clone "$nwo" "$REVIEW_DIR/$nwo" >&2
   fi
 done
