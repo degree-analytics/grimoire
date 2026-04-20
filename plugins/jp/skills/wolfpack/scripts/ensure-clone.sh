@@ -24,12 +24,19 @@ mkdir -p "$REVIEW_DIR"
 
 while IFS=$'\t' read -r repo nwo; do
   [ -z "$repo" ] && continue
-  if [ -d "$REVIEW_DIR/$repo" ]; then
+  # Key the clone path on nameWithOwner so two repos with the same short
+  # name under different owners (e.g. acme/admin_app vs beta/admin_app)
+  # don't collide on ~/ws/review/<repo>.
+  if [ -d "$REVIEW_DIR/$nwo" ]; then
     continue
   fi
   if [ "$MODE" = "check" ]; then
     printf '%s\t%s\n' "$repo" "$nwo"
   else
-    gh repo clone "$nwo" "$REVIEW_DIR/$repo" >&2
+    # Create the owner parent first — `gh repo clone` delegates to `git clone`,
+    # which does not create leading path components, so a fresh review dir
+    # with no existing <owner>/ would otherwise fail.
+    mkdir -p "$(dirname "$REVIEW_DIR/$nwo")"
+    gh repo clone "$nwo" "$REVIEW_DIR/$nwo" >&2
   fi
 done

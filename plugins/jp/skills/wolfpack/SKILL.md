@@ -10,7 +10,7 @@ Send a pack of review subagents at your GitHub review inbox.
 ## Subcommands
 
 - `/wolfpack hunt` — review up to 3 PRs from your review inbox in parallel
-- `/wolfpack groom` — prune worktrees for merged/closed PRs, archive reports
+- `/wolfpack groom` — sync review repos, prune worktrees for merged/closed PRs, archive reports
 
 ## Dispatch
 
@@ -31,6 +31,7 @@ Usage:
 
 Assumptions:
 - Review directory: `~/ws/review/`
+- Clone layout: `~/ws/review/<owner>/<repo>/` (nested so same-name repos across orgs don't collide)
 - Helper scripts live at `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/scripts/`
 - Subagent prompt template: `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/references/subagent-prompt.md`
 
@@ -91,12 +92,22 @@ Compute the final selection set:
 
 For each selected PR (up to 3):
 
-1. Call `prep-worktree.sh --clone ~/ws/review/<repo> --pr <n>` → captures worktree path.
-2. Resolve base ref: `gh pr view <n> --repo <nameWithOwner> --json baseRefName -q .baseRefName`.
-3. Load the template at `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/references/subagent-prompt.md` and substitute placeholders.
-4. Add an Agent tool call (subagent_type: `general-purpose`) with the substituted prompt.
+1. Resolve base ref: `gh pr view <n> --repo <nameWithOwner> --json baseRefName -q .baseRefName`.
+2. Detect whether the PR is part of a graphite stack — i.e. its base is **not** the repo's default branch. Query the default branch once per repo:
+   ```bash
+   DEFAULT=$(gh repo view <nameWithOwner> --json defaultBranchRef -q .defaultBranchRef.name)
+   ```
+   If `baseRefName` equals `DEFAULT` or is `dev`/`main`/`master`, `stacked=false`. Otherwise `stacked=true` (the PR stacks on another PR's branch).
+3. Call `prep-worktree.sh --clone ~/ws/review/<nameWithOwner> --pr <n> --base-ref <baseRefName>` → captures worktree path. The `--base-ref` fetch is cheap and idempotent; always pass it so `origin/<baseRefName>` is guaranteed to exist for Wolf's diff, whether the PR is stacked or not.
+4. Load the template at `${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/references/subagent-prompt.md` and substitute placeholders, including:
+   - `report_md_path` = `~/ws/review/.reports/<owner>__<repo>-pr<n>.md`
+   - `report_json_path` = `~/ws/review/.reports/<owner>__<repo>-pr<n>.summary.json`
+   - `stacked` = `true` or `false` from step 2
+5. Add an Agent tool call (subagent_type: `general-purpose`) with the substituted prompt.
 
 **Send all Agent tool calls in a single message** — the Claude Code runtime runs them concurrently. Do NOT loop and wait per PR.
+
+**Graphite stacks:** when `stacked=true`, Wolf is intentionally told to compare against the parent PR's branch only — reviewers see just this PR's incremental diff, matching Graphite's per-PR review model. The base ref fetched in step 3 makes that comparison possible even if the parent branch hasn't been fetched before.
 
 ### Phase 6: Collect and render
 
@@ -110,9 +121,9 @@ Render a single consolidated table and print it to the user:
 ```
 Wolfpack hunted N PRs:
 
-| PR | repo | verdict breakdown | crit | top issue | report |
-|----|------|-------------------|------|-----------|--------|
-| ...                                                      |
+| PR | repo | stack | verdict breakdown | crit | top issue | report |
+|----|------|-------|-------------------|------|-----------|--------|
+| ...                                                              |
 
 Worktrees kept at:
   <path>
@@ -121,20 +132,32 @@ Worktrees kept at:
 Run /wolfpack groom to clean up merged/closed PR worktrees.
 ```
 
+The `stack` column shows `→<base-branch>` when the PR stacks on another PR; empty otherwise. This helps reviewers recognize why a diff may look small — they're reviewing incremental changes against a parent PR.
+
 End of hunt.
 
 ---
 
 ## GROOM workflow
 
+```
+Usage:
+  /wolfpack groom [--all] [--no-sync]
+```
+
 Parse any flags after `groom`:
 - `--all` → pass to groom.sh (removes every wolfpack worktree)
+- `--no-sync` → pass to groom.sh (skips the per-repo sync pass)
 
 Initialize the flag variable explicitly before invoking:
 
 ```bash
 EXTRA_FLAGS=""
-[ "${1:-}" = "--all" ] && EXTRA_FLAGS="--all"
+for arg in "$@"; do
+  case "$arg" in
+    --all|--no-sync) EXTRA_FLAGS="$EXTRA_FLAGS $arg" ;;
+  esac
+done
 ```
 
 ### Step 1: Preflight
@@ -146,27 +169,20 @@ gh auth status >/dev/null 2>&1 || {
 }
 ```
 
-### Step 2: Derive owner and run groom
-
-The inbox owner (for `gh pr view --repo <owner>/<repo>`) comes from the first seen PR in the current inbox. Fetch it via:
-
-```bash
-OWNER=$(${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/scripts/inbox.sh 2>/dev/null \
-  | jq -r '.[0].nameWithOwner | split("/")[0] // "campusiq"')
-```
-
-If the inbox is empty, default to `campusiq`. (If the user reviews cross-org later, we add `--owner` to the subcommand.)
-
-### Step 3: Invoke groom.sh
+### Step 2: Invoke groom.sh
 
 ```bash
 ${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/scripts/groom.sh \
   --review-dir ~/ws/review \
-  --repo-owner "$OWNER" \
   $EXTRA_FLAGS
 ```
 
-Stream its output directly. That's the entire groom UX.
+Stream its output directly. That's the entire groom UX. Owner and repo are derived per-worktree from the `<owner>/<repo>/` path, so cross-org reviews work out of the box.
+
+Groom runs in two passes:
+
+1. **Sync** (unless `--no-sync`): for each `<owner>/<repo>` clone under `~/ws/review/`, run `gt sync -f` when the repo is gt-initialized (Graphite's recommended fetch + trunk update + merged-branch delete), falling back to `git fetch --all --prune`. This keeps origin refs fresh so the next `/wolfpack hunt` has up-to-date PR head and base refs.
+2. **Prune**: remove worktrees whose PR is `MERGED` or `CLOSED` (or all wolfpack worktrees if `--all`), archive their reports under `.reports/archive/`, and prune stale worktree metadata.
 
 ---
 
