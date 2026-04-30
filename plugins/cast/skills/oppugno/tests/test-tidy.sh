@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-SCRIPT="$HERE/../scripts/groom.sh"
+SCRIPT="$HERE/../scripts/tidy.sh"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -81,7 +81,7 @@ PATH="$STUB_BIN:$PATH" "$SCRIPT" --review-dir "$REV" --no-sync
 [ ! -f "$TMP/gt.log" ] && [ ! -f "$TMP/git-fetch.log" ] \
   || { echo "FAIL: --no-sync still ran sync"; exit 1; }
 
-# Cross-owner groom: a second org with the same short repo name must be
+# Cross-owner tidy: a second org with the same short repo name must be
 # handled independently and not confused with the first.
 mkdir -p "$REV/acme/admin_app/.worktrees/pr-5555" "$REV/acme/admin_app/.git"
 : > "$REV/.reports/acme__admin_app-pr5555.md"
@@ -91,7 +91,7 @@ PATH="$STUB_BIN:$PATH" "$SCRIPT" --review-dir "$REV" --all --no-sync
 [ -f "$REV/.reports/archive/acme__admin_app-pr5555.md" ] \
   || { echo "FAIL: acme/admin_app report not archived"; exit 1; }
 
-# Legacy flat-layout groom: pre-migration clones live at $REV/<repo>/ with
+# Legacy flat-layout tidy: pre-migration clones live at $REV/<repo>/ with
 # their owner derived from `origin`, and their reports used the old
 # <repo>-pr<n>.md naming (no owner prefix). Groom must archive those too.
 LEGACY="$TMP/legacy_review"
@@ -119,4 +119,4 @@ OUT=$(PATH="$STUB_BIN:$PATH" "$SCRIPT" --review-dir "$UNRECOG" --no-sync 2>&1)
 echo "$OUT" | grep -q "but none look like git clones" \
   || { echo "FAIL: no diagnostic for unrecognized subdirs"; echo "got: $OUT"; exit 1; }
 
-echo "PASS: test-groom.sh"
+echo "PASS: test-tidy.sh"

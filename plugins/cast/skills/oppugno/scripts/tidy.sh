@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# groom.sh — sync review repos, remove wolfpack worktrees for merged/closed PRs,
+# tidy.sh — sync review repos, remove oppugno worktrees for merged/closed PRs,
 # and archive their reports.
 # Usage:
-#   groom.sh --review-dir <dir> [--all] [--no-sync]
-# --all      removes every wolfpack worktree regardless of PR state.
+#   tidy.sh --review-dir <dir> [--all] [--no-sync]
+# --all      removes every oppugno worktree regardless of PR state.
 # --no-sync  skips the per-repo sync pass (gt sync / git fetch).
 #
 # Review-dir layout: $REVIEW_DIR/<owner>/<repo>/.worktrees/pr-<n>
@@ -109,7 +109,7 @@ for entry in "${CLONES[@]}"; do
         [ -f "$report"  ] && mv "$report"  "$REVIEW_DIR/.reports/archive/"
         [ -f "$summary" ] && mv "$summary" "$REVIEW_DIR/.reports/archive/"
         # Pre-migration flat-layout clones used <repo>-pr<n> (no owner prefix).
-        # Archive those too so groom doesn't leave stale reports behind.
+        # Archive those too so tidy doesn't leave stale reports behind.
         legacy_report="$REVIEW_DIR/.reports/${repo}-pr${pr}.md"
         legacy_summary="$REVIEW_DIR/.reports/${repo}-pr${pr}.summary.json"
         [ -f "$legacy_report"  ] && mv "$legacy_report"  "$REVIEW_DIR/.reports/archive/"

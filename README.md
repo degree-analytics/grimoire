@@ -4,15 +4,13 @@ A personal [Claude Code](https://docs.claude.com/en/docs/claude-code) plugin mar
 
 > A grimoire is a book of spells. This one holds mine.
 
-## Vocabulary
+## Spellbook
 
-| Term | Meaning |
-|------|---------|
-| **grimoire** | this marketplace |
-| **tomes** | plugins (grouped collections) |
-| **spells** | skills |
-| **incantations** | slash commands |
-| **runes** | hooks |
+| Spell | What it does |
+|-------|-------------|
+| `/cast:praepario` | Situational awareness — recent completions, active work, PR status, project progress, flags, and recommendations |
+| `/cast:oppugno` | Batch PR review — tidies stale worktrees, then dispatches parallel review agents at your GitHub inbox |
+| `/cast:revelio` | PR summary — synthesizes ticket context, implementation, review discussion, and concerns into a structured report |
 
 ## Install
 
@@ -24,7 +22,7 @@ A personal [Claude Code](https://docs.claude.com/en/docs/claude-code) plugin mar
 claude plugin marketplace add jparkypark/grimoire
 ```
 
-Then browse available tomes:
+Then browse available plugins:
 
 ```bash
 /plugin
@@ -36,21 +34,24 @@ Then browse available tomes:
 grimoire/
 ├── .claude-plugin/
 │   └── marketplace.json    # marketplace manifest
-├── plugins/                # tomes live here
-│   └── <tome-name>/
+├── plugins/
+│   └── cast/               # personal spellbook
 │       ├── .claude-plugin/
 │       │   └── plugin.json
-│       ├── skills/         # spells
-│       ├── commands/       # incantations
-│       └── hooks/          # runes
+│       ├── skills/
+│       │   ├── praepario/
+│       │   ├── oppugno/
+│       │   └── revelio/
+│       ├── commands/
+│       └── hooks/
 └── README.md
 ```
 
-## Adding a new tome
+## Adding a new plugin
 
-1. Create `plugins/<tome-name>/.claude-plugin/plugin.json`
+1. Create `plugins/<name>/.claude-plugin/plugin.json`
 2. Add skills, commands, or hooks under that directory
-3. Register the tome in `.claude-plugin/marketplace.json` under `plugins`
+3. Register in `.claude-plugin/marketplace.json` under `plugins`
 
 ## License
 
