@@ -31,7 +31,7 @@ else
     nwo=$(echo "$row" | jq -r '.repository.nameWithOwner')
     extra=$(gh pr view "$n" --repo "$nwo" \
       --json additions,deletions,isDraft,statusCheckRollup 2>/dev/null || echo '{}')
-    echo "$row" | jq --argjson extra "$extra" '. + $extra'
+    jq -s '.[0] + .[1]' <(echo "$row") <(echo "$extra")
   done | jq -s '.')
 fi
 
