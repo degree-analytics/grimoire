@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.0] - 2026-04-30
+
+### Added
+- **revelio** skill — PR summary that synthesizes ticket, description,
+  review discussion, and diff into a structured report
+
 ## [0.2.0] - 2026-04-17
 
 ### Added
