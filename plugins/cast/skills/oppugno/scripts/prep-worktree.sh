@@ -21,7 +21,7 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$CLONE" ] && [ -n "$PR" ] || { echo "usage: --clone <path> --pr <number> [--base-ref <branch>]" >&2; exit 2; }
 
-BRANCH="wolfpack-pr$PR"
+BRANCH="oppugno-pr$PR"
 FETCH_REF="refs/remotes/origin/pr-$PR-head"
 WT="$CLONE/.worktrees/pr-$PR"
 

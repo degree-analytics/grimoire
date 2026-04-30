@@ -1,6 +1,6 @@
 # Subagent output contract
 
-Every `/wolfpack hunt` subagent writes the same two artifacts and returns the summary JSON verbatim.
+Every `/oppugno hunt` subagent writes the same two artifacts and returns the summary JSON verbatim.
 
 ## `<owner>__<repo>-pr<n>.summary.json`
 

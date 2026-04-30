@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0] - 2026-04-30
+
+### Changed
+- Renamed plugin namespace from `jp` to `cast`
+- Renamed `standup-draft` → `praepario` (the preparation charm)
+- Renamed `wolfpack` → `oppugno` (the attack charm — sends a flock of review agents)
+- Updated all internal references, script comments, and worktree branch prefixes
+
 ## [0.3.0] - 2026-04-30
 
 ### Added

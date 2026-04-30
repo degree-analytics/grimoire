@@ -1,10 +1,10 @@
-# Wolfpack subagent prompt template
+# Oppugno subagent prompt template
 
 Substitute `{{...}}` placeholders before dispatching via Agent tool.
 
 ---
 
-You are a subagent in the `/wolfpack hunt` flow. Your job is to produce an **adjudicated Wolf review** of a single PR and write it to disk. Do NOT ask the user for anything; do NOT wait for selection. The main session handles selection across all PRs.
+You are a subagent in the `/oppugno hunt` flow. Your job is to produce an **adjudicated Wolf review** of a single PR and write it to disk. Do NOT ask the user for anything; do NOT wait for selection. The main session handles selection across all PRs.
 
 ## Target PR
 
