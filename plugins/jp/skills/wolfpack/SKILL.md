@@ -81,14 +81,80 @@ If `$MISSING` is non-empty, use **AskUserQuestion** with these options:
 - "Skip PRs in missing repos" → filter them out of `$INBOX`
 - "Cancel" → stop
 
-### Phase 4: PR selection
+### Phase 4: Triage
+
+Determine which PRs are actually ready for review. For each PR in `$INBOX`, run triage:
+
+```bash
+VIEWER=$(gh api user --jq .login)
+TRIAGE_RESULTS=""
+while read -r pr_json; do
+  result=$(echo "$pr_json" | ${CLAUDE_PLUGIN_ROOT}/skills/wolfpack/scripts/triage.sh --viewer "$VIEWER")
+  TRIAGE_RESULTS="${TRIAGE_RESULTS}${result}"$'\n'
+done < <(echo "$INBOX" | jq -c '.[]')
+```
+
+Split PRs into three buckets based on `verdict`:
+
+- **ready** — eligible for review, pass through to selection.
+- **not_ready** — draft or CI failing, and we haven't commented yet (or author replied to our comment asking for review anyway).
+- **already_flagged** — we already left a comment and author hasn't replied. Auto-skip these.
+
+If there are **already_flagged** PRs, print a summary line:
+
+```
+Skipping N PRs (already flagged as not ready, no author response):
+  - #1234 campusiq/admin_app — "WIP: new auth flow" (draft)
+  - #567  campusiq/bifrost   — "Add metrics" (CI: FAILURE)
+```
+
+If there are **not_ready** PRs, present each one via **AskUserQuestion** (one question per PR, or batched if ≤3):
+
+```
+PR #892 campusiq/bifrost — "WIP: new auth flow"
+Status: draft
+```
+
+Options:
+- **"Leave a comment and skip"** — post a comment via `gh pr comment <n> --repo <nwo> --body "..."` using a polite template (see below) and remove from the selection pool.
+- **"Review anyway"** — keep it in the selection pool despite not being ready.
+- **"Skip silently"** — remove from selection pool without commenting.
+
+For PRs where `author_replied` is true, amend the question to note:
+
+```
+PR #892 campusiq/bifrost — "WIP: new auth flow"
+Status: draft
+Note: Author replied after your last comment — they may want early feedback.
+```
+
+**Comment templates** (choose based on reasons):
+
+Draft only:
+> Holding off on review — this is still in draft. Let me know when it's ready and I'll take a look.
+
+CI failing only:
+> Holding off on review — CI is failing. Let me know when it's green and I'll take a look.
+
+Both:
+> Holding off on review — this is still in draft and CI is failing. Let me know when both are resolved and I'll take a look.
+
+After triage, replace `$INBOX` with only the PRs that passed through (ready + "review anyway" selections). If no PRs remain, print:
+
+```
+no review-ready PRs after triage — nothing to hunt
+```
+
+...and stop.
+
+### Phase 5: PR selection
 
 Compute the final selection set:
 
 - If `$COUNT <= 3`: use all PRs.
 - If `$COUNT > 3`: render a table of all PRs (columns: PR, repo, title truncated to 60 chars, author, +/-, checks, updated) and ask the user via **AskUserQuestion** (multiSelect: true) which to hunt. **Enforce a cap of 3 selected.** If the user picks more, ask again.
 
-### Phase 5: Dispatch subagents in parallel
+### Phase 6: Dispatch subagents in parallel
 
 For each selected PR (up to 3):
 
@@ -114,7 +180,7 @@ For each selected PR (up to 3):
 
 **Graphite stacks:** when `stacked=true`, Wolf is intentionally told to compare against the parent PR's branch only — reviewers see just this PR's incremental diff, matching Graphite's per-PR review model. The base ref fetched in step 3 makes that comparison possible even if the parent branch hasn't been fetched before.
 
-### Phase 6: Collect and render
+### Phase 7: Collect and render
 
 Each subagent's final response is a JSON summary (per `references/subagent-contract.md`). For each:
 
