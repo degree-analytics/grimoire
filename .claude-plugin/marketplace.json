@@ -5,15 +5,15 @@
     "url": "https://github.com/jparkypark"
   },
   "metadata": {
-    "description": "Personal Claude Code marketplace — a collection of spells (skills), tomes (plugins), incantations (commands), and runes (hooks).",
-    "version": "0.1.0"
+    "description": "Personal Claude Code plugin marketplace.",
+    "version": "0.2.0"
   },
   "plugins": [
     {
-      "name": "jp",
-      "source": "./plugins/jp",
-      "description": "Personal skills, commands, and hooks.",
-      "version": "0.2.0",
+      "name": "cast",
+      "source": "./plugins/cast",
+      "description": "Personal spellbook — skills for standup, PR review, and PR comprehension.",
+      "version": "0.4.0",
       "author": {
         "name": "jparkypark"
       }
