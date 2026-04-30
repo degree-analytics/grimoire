@@ -26,4 +26,18 @@ AUTHOR=$(echo "$OUT" | jq -r '.[0].author')
 AUTHOR_TYPE=$(echo "$OUT" | jq -r '.[0].author | type')
 [ "$AUTHOR_TYPE" = "string" ] || { echo "FAIL: author should be a string, got $AUTHOR_TYPE"; exit 1; }
 
+# Test 4: isDraft is preserved in output
+DRAFT=$(echo "$OUT" | jq -r '.[2].isDraft')
+[ "$DRAFT" = "true" ] || { echo "FAIL: expected isDraft=true for PR #892, got $DRAFT"; exit 1; }
+
+NOT_DRAFT=$(echo "$OUT" | jq -r '.[0].isDraft')
+[ "$NOT_DRAFT" = "false" ] || { echo "FAIL: expected isDraft=false for PR #1234, got $NOT_DRAFT"; exit 1; }
+
+# Test 5: checks field is normalized to comma-joined states
+CHECKS_0=$(echo "$OUT" | jq -r '.[0].checks')
+[ "$CHECKS_0" = "SUCCESS" ] || { echo "FAIL: expected checks=SUCCESS for PR #1234, got $CHECKS_0"; exit 1; }
+
+CHECKS_2=$(echo "$OUT" | jq -r '.[2].checks')
+[ "$CHECKS_2" = "" ] || { echo "FAIL: expected checks='' for PR #892 (no checks), got $CHECKS_2"; exit 1; }
+
 echo "PASS: test-inbox.sh"

@@ -1,0 +1,12 @@
+[
+  {
+    "author": {"login": "jparkypark"},
+    "body": "Holding off on review — this is still in draft. Let me know when it's ready and I'll take a look.",
+    "createdAt": "2026-04-28T10:00:00Z"
+  },
+  {
+    "author": {"login": "alice"},
+    "body": "Actually can you review now? I want early feedback on the approach.",
+    "createdAt": "2026-04-28T14:30:00Z"
+  }
+]
